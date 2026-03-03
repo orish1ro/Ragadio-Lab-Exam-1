@@ -2,9 +2,53 @@
 session_start(); 
 include "db.php";
 
+class StudentManager {
+    private $conn;
+
+    public function __construct($dbConnection) {
+        $this->conn = $dbConnection;
+    }
+
+    public function createStudent($student_id, $name, $email, $course) {
+        $formatted_name = ucwords(trim($name)); 
+        $formatted_course = strtoupper(trim($course)); 
+        $valid_id = abs((int)$student_id); 
+
+        $query = "INSERT INTO students (student_id, student_name, email, course) VALUES ('$valid_id', '$formatted_name', '$email', '$formatted_course')";
+        return $this->conn->query($query);
+    }
+
+    public function updateStudent($id, $student_id, $name, $email, $course) {
+        $formatted_name = ucwords(trim($name));
+        $formatted_course = strtoupper(trim($course));
+        $valid_id = abs((int)$student_id);
+
+        $query = "UPDATE students SET student_name='$formatted_name', email='$email', student_id='$valid_id', course='$formatted_course' WHERE id_number='$id'";
+        return $this->conn->query($query);
+    }
+
+    public function deleteStudent($id) {
+        $query = "DELETE FROM students WHERE id_number = '$id'";
+        return $this->conn->query($query);
+    }
+
+    public function getAllStudents() {
+        $query = "SELECT * FROM students";
+        return $this->conn->query($query);
+    }
+
+    public function getStudentById($id) {
+        $query = "SELECT * FROM students WHERE id_number = '$id'";
+        $result = $this->conn->query($query);
+        return $result->fetch_assoc();
+    }
+}
+
+$db = new Database();
+$manager = new StudentManager($db->conn);
+
 if (isset($_GET['delete'])) {
-    $id = $_GET['delete'];
-    mysqli_query($conn, "DELETE FROM students WHERE id_number = '$id'");
+    $manager->deleteStudent($_GET['delete']);
     header("Location: index.php");
     exit();
 }
@@ -16,16 +60,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $course = $_POST['course'];
     
     if (!empty($_POST['id_number'])) {
-        $id = $_POST['id_number'];
-        $query = "UPDATE students SET student_name='$student_name', email='$email', student_id='$student_id', course='$course' WHERE id_number='$id'";
+        $manager->updateStudent($_POST['id_number'], $student_id, $student_name, $email, $course);
     } else {
-        $query = "INSERT INTO students (student_id, student_name, email, course) VALUES ('$student_id', '$student_name', '$email', '$course')";
+        $manager->createStudent($student_id, $student_name, $email, $course);
     }
     
-    if (mysqli_query($conn, $query)) {
-        header("Location: index.php");
-        exit();
-    }
+    header("Location: index.php");
+    exit();
 }
 
 $u_name = "";
@@ -35,87 +76,100 @@ $u_course = "";
 $u_id_number = "";
 
 if (isset($_GET['edit'])) {
-    $id = $_GET['edit'];
-    $edit_query = mysqli_query($conn, "SELECT * FROM students WHERE id_number = '$id'");
-    if ($row = mysqli_fetch_assoc($edit_query)) {
-        $u_name = $row['student_name'];
-        $u_email = $row['email'];
-        $u_student_id = $row['student_id'];
-        $u_course = $row['course'];
-        $u_id_number = $row['id_number'];
+    $studentData = $manager->getStudentById($_GET['edit']);
+    if ($studentData) {
+        $u_name = $studentData['student_name'];
+        $u_email = $studentData['email'];
+        $u_student_id = $studentData['student_id'];
+        $u_course = $studentData['course'];
+        $u_id_number = $studentData['id_number'];
     }
 }
 
-$query = "SELECT * FROM students";
-$result = mysqli_query($conn, $query);
+$result = $manager->getAllStudents();
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Student Records</title>
-    <link rel="stylesheet" href="style.css">
+    <title>Student Records System</title>
+    <link rel="stylesheet" href="style.css?v=<?php echo time(); ?>">
 </head>
 <body>
-    <div class="container">
+
+<div class="app-container">
+    <div class="header-banner">
         <h2>Student Records</h2>
+    </div>
+
+    <div class="top-form-section">
+        <h3><?php if($u_id_number != "") { echo "Edit Student Information"; } else { echo "Register New Student"; } ?></h3>
         
-        <div class="add-form-container">
-            <h3 style="margin-bottom: 15px;">
-                <?php if($u_id_number != "") { echo "Edit Student"; } else { echo "Add New Student"; } ?>
-            </h3>
-            <form action="index.php" method="POST" class="add-form">
-                <input type="hidden" name="id_number" value="<?php echo $u_id_number; ?>">
-                
+        <form action="index.php" method="POST" class="add-form">
+            <input type="hidden" name="id_number" value="<?php echo $u_id_number; ?>">
+            
+            <div class="form-row">
                 <div class="form-group">
-                    <input type="text" name="student_name" placeholder="Student Name" value="<?php echo $u_name; ?>" required>
+                    <label>Name</label>
+                    <input type="text" name="student_name" value="<?php echo $u_name; ?>" placeholder="e.g. Russel John Ragadio" required>
                 </div>
                 <div class="form-group">
-                    <input type="email" name="email" placeholder="Email Address" value="<?php echo $u_email; ?>" required>
+                    <label>Email</label>
+                    <input type="email" name="email" value="<?php echo $u_email; ?>" placeholder="russeljohn@fake.com" required>
                 </div>
-                <div class="form-group">
-                    <input type="number" name="student_id" placeholder="Student ID Number" value="<?php echo $u_student_id; ?>" required>
-                </div>
-                <div class="form-group">
-                    <input type="text" name="course" placeholder="Course" value="<?php echo $u_course; ?>" required>
-                </div>
-                <button type="submit" class="submit-btn">
-                    <?php if($u_id_number != "") { echo "Update Student"; } else { echo "Save Student"; } ?>
-                </button>
-                
-                <?php if($u_id_number != "") { ?>
-                    <a href="index.php" class="cancel-btn" style="display:block; text-align:center; margin-top:10px; color:#6b7280; text-decoration:none;">Cancel Edit</a>
-                <?php } ?>
-            </form>
-        </div>
+            </div>
 
-        <hr style="margin: 30px 0; border: 0; border-top: 1px solid #e5e7eb;">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Student ID</label>
+                    <input type="number" name="student_id" value="<?php echo $u_student_id; ?>" placeholder="12345678" required>
+                </div>
+                <div class="form-group">
+                    <label>Course</label>
+                    <input type="text" name="course" value="<?php echo $u_course; ?>" placeholder="BSIT" required>
+                </div>
+            </div>
 
-        <div class="records-container">
+            <button type="submit" class="submit-btn">
+                <?php if($u_id_number != "") { echo "Confirm Updates"; } else { echo "Add Student"; } ?>
+            </button>
+            
+            <?php if($u_id_number != "") { ?>
+                <a href="index.php" class="cancel-btn">Discard Changes</a>
+            <?php } ?>
+        </form>
+    </div>
+
+    <div class="bottom-records-section">
+        <h3>Current Enrolled Students</h3>
+        <div class="records-grid">
             <?php 
-            if (mysqli_num_rows($result) > 0) {
-                while ($row = mysqli_fetch_assoc($result)) { 
+            if ($result->num_rows > 0) {
+                while ($row = $result->fetch_assoc()) { 
             ?>
                     <div class="student-card">
-                        <div class="student-details">
-                            <h4 class="student-name"><?php echo $row['student_name']; ?></h4>
-                            <p class="student-info"><?php echo $row['email']; ?></p>
-                            <p class="student-info"><?php echo $row['student_id']; ?></p>
-                            <p class="student-info"><?php echo $row['course']; ?></p>
+                        <div class="card-header">
+                            <span class="badge course-badge"><?php echo $row['course']; ?></span>
+                            <span class="badge id-badge">ID: <?php echo $row['student_id']; ?></span>
                         </div>
-                        <div class="card-options">
-                            <a href="index.php?edit=<?php echo $row['id_number']; ?>" class="action-btn edit-btn">Edit</a>
-                            <a href="index.php?delete=<?php echo $row['id_number']; ?>" class="action-btn delete-btn" onclick="return confirm('Are you sure you want to delete this student?');">Delete</a>
+                        <h4 class="student-name"><?php echo $row['student_name']; ?></h4>
+                        <p class="student-email">📧 <?php echo $row['email']; ?></p>
+                        
+                        <div class="card-actions">
+                            <a href="index.php?edit=<?php echo $row['id_number']; ?>" class="btn-edit">Edit</a>
+                            <a href="index.php?delete=<?php echo $row['id_number']; ?>" class="btn-delete" onclick="return confirm('Remove this student from the database?');">Remove</a>
                         </div>
                     </div>
             <?php 
                 } 
             } else {
-                echo "<p>No student records found.</p>";
+                echo '<div class="empty-state">No students found in the database.</div>';
             } 
             ?>
         </div>
     </div>
+</div>
+
 </body>
 </html>

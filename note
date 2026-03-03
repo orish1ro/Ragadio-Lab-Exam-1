@@ -1,0 +1,16 @@
+create database IF NOT EXISTS LAB-EXAM-1;
+USE LAB-EXAM-1;
+
+CREATE TABLE students (
+    id_number int(11) NOT NULL AUTO_INCREMENT,
+    student_id int(11) NOT NULL,
+    student_name varchar(150) NOT NULL,
+    email varchar(150) NOT NULL,
+    course varchar(50) NOT NULL,
+    PRIMARY KEY (id_number)
+);
+
+CREATE TABLE users (
+    username varchar(50) NOT NULL,
+    password varchar(50) NOT NULL
+);
